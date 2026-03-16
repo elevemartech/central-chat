@@ -72,9 +72,10 @@ export async function fetchConversations(
   accountId: string,
   status = "open"
 ): Promise<ApiConversation[]> {
-  return apiFetch<ApiConversation[]>(
+  const res = await apiFetch<PaginatedResponse<ApiConversation>>(
     `/api/conversations/?account=${accountId}&status=${status}`
   );
+  return res.results;
 }
 
 export async function markConversationRead(conversationId: string) {
