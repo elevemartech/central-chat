@@ -1,189 +1,92 @@
-import { useState } from "react";
 import { ThemeProvider } from "./components/ThemeProvider";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { LoginScreen } from "./components/LoginScreen";
 import { HostSidebar, Host } from "./components/HostSidebar";
 import { ConversationList, Conversation } from "./components/ConversationList";
 import { ChatWindow, Message } from "./components/ChatWindow";
 import { EmptyState } from "./components/EmptyState";
+import { useAccounts, useConversations, useMessages } from "./hooks/useChat";
+import { ApiAccount, ApiConversation, ApiMessage } from "./api/endpoints";
+import { useState } from "react";
 
-// Mock data
-const mockHosts: Host[] = [
-  {
-    id: "1",
-    name: "Empresa Alpha",
-    avatar: "EA",
-    color: "#3b82f6",
-    unreadCount: 5,
-  },
-  {
-    id: "2",
-    name: "Empresa Beta",
-    avatar: "EB",
-    color: "#8b5cf6",
-    unreadCount: 0,
-  },
-  {
-    id: "3",
-    name: "Suporte Tech",
-    avatar: "ST",
-    color: "#06b6d4",
-    unreadCount: 2,
-  },
-  {
-    id: "4",
-    name: "Marketing Plus",
-    avatar: "MP",
-    color: "#ec4899",
-  },
-];
+// ─── Adaptadores API → tipos do frontend ─────────────────────────────────────
 
-const mockConversations: Record<string, Conversation[]> = {
-  "1": [
-    {
-      id: "c1",
-      contactName: "Ana Silva",
-      contactAvatar: "AS",
-      lastMessage: "Ótimo! Vamos agendar a reunião para amanhã às 14h.",
-      timestamp: new Date(Date.now() - 1000 * 60 * 5),
-      unreadCount: 2,
-      isOnline: true,
-    },
-    {
-      id: "c2",
-      contactName: "Carlos Santos",
-      contactAvatar: "CS",
-      lastMessage: "Enviei os documentos por email. Pode verificar?",
-      timestamp: new Date(Date.now() - 1000 * 60 * 30),
-      unreadCount: 0,
-      isOnline: false,
-    },
-    {
-      id: "c3",
-      contactName: "Beatriz Lima",
-      contactAvatar: "BL",
-      lastMessage: "Perfeito! Obrigada pela ajuda 😊",
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
-      unreadCount: 0,
-      isOnline: true,
-    },
-    {
-      id: "c4",
-      contactName: "Diego Pereira",
-      contactAvatar: "DP",
-      lastMessage: "Preciso de ajuda com o projeto. Você está disponível?",
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5),
-      unreadCount: 3,
-      isOnline: false,
-    },
-    {
-      id: "c5",
-      contactName: "Fernanda Costa",
-      contactAvatar: "FC",
-      lastMessage: "A apresentação ficou excelente!",
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24),
-      unreadCount: 0,
-      isOnline: true,
-    },
-  ],
-  "2": [
-    {
-      id: "c6",
-      contactName: "Roberto Alves",
-      contactAvatar: "RA",
-      lastMessage: "Podemos conversar sobre o orçamento?",
-      timestamp: new Date(Date.now() - 1000 * 60 * 15),
-      unreadCount: 0,
-      isOnline: true,
-    },
-    {
-      id: "c7",
-      contactName: "Juliana Martins",
-      contactAvatar: "JM",
-      lastMessage: "Tudo certo! Já finalizei o relatório.",
-      timestamp: new Date(Date.now() - 1000 * 60 * 60),
-      unreadCount: 0,
-      isOnline: false,
-    },
-  ],
-  "3": [
-    {
-      id: "c8",
-      contactName: "Cliente #4821",
-      contactAvatar: "C1",
-      lastMessage: "Meu sistema está apresentando um erro...",
-      timestamp: new Date(Date.now() - 1000 * 60 * 2),
-      unreadCount: 1,
-      isOnline: true,
-    },
-    {
-      id: "c9",
-      contactName: "Cliente #4820",
-      contactAvatar: "C2",
-      lastMessage: "Muito obrigado pelo suporte rápido!",
-      timestamp: new Date(Date.now() - 1000 * 60 * 45),
-      unreadCount: 1,
-      isOnline: false,
-    },
-  ],
-  "4": [
-    {
-      id: "c10",
-      contactName: "Equipe Criativa",
-      contactAvatar: "EC",
-      lastMessage: "As novas artes estão prontas para aprovação",
-      timestamp: new Date(Date.now() - 1000 * 60 * 10),
-      unreadCount: 0,
-      isOnline: true,
-    },
-  ],
-};
+function accountToHost(a: ApiAccount): Host {
+  const initials = a.name
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
 
-const mockMessages: Record<string, Message[]> = {
-  c1: [
-    {
-      id: "m1",
-      content: "Oi Ana! Tudo bem? Vi que você precisava falar sobre o projeto.",
-      senderId: "me",
-      timestamp: new Date(Date.now() - 1000 * 60 * 20),
-      status: "read",
-    },
-    {
-      id: "m2",
-      content: "Oi! Sim, preciso discutir alguns pontos importantes do cronograma.",
-      senderId: "ana",
-      timestamp: new Date(Date.now() - 1000 * 60 * 18),
-    },
-    {
-      id: "m3",
-      content: "Claro! Podemos fazer uma reunião rápida?",
-      senderId: "me",
-      timestamp: new Date(Date.now() - 1000 * 60 * 15),
-      status: "read",
-    },
-    {
-      id: "m4",
-      content: "Ótimo! Vamos agendar a reunião para amanhã às 14h.",
-      senderId: "ana",
-      timestamp: new Date(Date.now() - 1000 * 60 * 5),
-    },
-  ],
-  c4: [
-    {
-      id: "m5",
-      content: "Preciso de ajuda com o projeto. Você está disponível?",
-      senderId: "diego",
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5),
-    },
-  ],
-};
+  return {
+    id: a.id,
+    name: a.name,
+    avatar: initials,           // iniciais quando não há imagem
+    color: a.color || "#3b82f6",
+  };
+}
 
-export default function App() {
-  const [selectedHostId, setSelectedHostId] = useState<string>("1");
+function conversationToFrontend(c: ApiConversation): Conversation {
+  const name = c.contact_name || c.contact_phone || "Desconhecido";
+  const initials = name
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
+
+  return {
+    id: c.id,
+    contactName: name,
+    contactAvatar: c.contact_avatar || initials,
+    lastMessage: c.last_message_preview || "",
+    timestamp: c.last_message_at ? new Date(c.last_message_at) : new Date(0),
+    unreadCount: c.unread_count,
+    isOnline: false,            // API não expõe presença — sempre offline
+  };
+}
+
+function messageToFrontend(m: ApiMessage): Message {
+  return {
+    id: m.id,
+    content: m.content || `[${m.message_type}]`,
+    senderId: m.direction === "outbound" ? "me" : "contact",
+    timestamp: new Date(m.timestamp),
+    status: m.status === "pending" || m.status === "failed"
+      ? "sent"
+      : (m.status as "sent" | "delivered" | "read"),
+  };
+}
+
+// ─── Inner app (autenticado) ──────────────────────────────────────────────────
+
+function ChatApp() {
+  const [selectedHostId, setSelectedHostId] = useState<string | null>(null);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Record<string, Message[]>>(mockMessages);
 
-  const currentConversations = mockConversations[selectedHostId] || [];
-  const currentMessages = selectedConversationId ? messages[selectedConversationId] || [] : [];
-  const currentConversation = currentConversations.find(
+  const { accounts, loading: loadingAccounts } = useAccounts();
+  const { conversations, loading: loadingConvs } = useConversations(selectedHostId);
+  const { messages, sending, sendMessage } = useMessages(selectedConversationId);
+
+  // Seleciona o primeiro host automaticamente após carregar
+  if (!selectedHostId && accounts.length > 0) {
+    setSelectedHostId(accounts[0].id);
+  }
+
+  const hosts = accounts.map(accountToHost);
+
+  // Calcula unreadCount por host somando as conversas já carregadas
+  const hostsWithUnread = hosts.map((h) => {
+    if (h.id !== selectedHostId) return h;
+    const total = conversations.reduce((sum, c) => sum + c.unread_count, 0);
+    return { ...h, unreadCount: total };
+  });
+
+  const frontendConversations = conversations.map(conversationToFrontend);
+  const frontendMessages = messages.map(messageToFrontend);
+
+  const currentConversation = frontendConversations.find(
     (c) => c.id === selectedConversationId
   );
 
@@ -192,54 +95,69 @@ export default function App() {
     setSelectedConversationId(null);
   };
 
-  const handleSendMessage = (content: string) => {
-    if (!selectedConversationId) return;
-
-    const newMessage: Message = {
-      id: `m${Date.now()}`,
-      content,
-      senderId: "me",
-      timestamp: new Date(),
-      status: "sent",
-    };
-
-    setMessages((prev) => ({
-      ...prev,
-      [selectedConversationId]: [...(prev[selectedConversationId] || []), newMessage],
-    }));
-  };
+  if (loadingAccounts) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-zinc-950 text-zinc-400">
+        Carregando...
+      </div>
+    );
+  }
 
   return (
-    <ThemeProvider>
-      <div className="h-screen flex overflow-hidden bg-zinc-950">
-        {/* Host Sidebar */}
-        <HostSidebar
-          hosts={mockHosts}
-          selectedHostId={selectedHostId}
-          onSelectHost={handleSelectHost}
-        />
+    <div className="h-screen flex overflow-hidden bg-zinc-950">
+      {/* Coluna 1 — Hosts */}
+      <HostSidebar
+        hosts={hostsWithUnread}
+        selectedHostId={selectedHostId ?? ""}
+        onSelectHost={handleSelectHost}
+      />
 
-        {/* Conversation List */}
-        <ConversationList
-          conversations={currentConversations}
-          selectedConversationId={selectedConversationId}
-          onSelectConversation={setSelectedConversationId}
-        />
+      {/* Coluna 2 — Conversas */}
+      <ConversationList
+        conversations={frontendConversations}
+        selectedConversationId={selectedConversationId}
+        onSelectConversation={setSelectedConversationId}
+      />
 
-        {/* Chat Window */}
-        {selectedConversationId && currentConversation ? (
-          <ChatWindow
-            contactName={currentConversation.contactName}
-            contactAvatar={currentConversation.contactAvatar}
-            isOnline={currentConversation.isOnline}
-            messages={currentMessages}
-            currentUserId="me"
-            onSendMessage={handleSendMessage}
-          />
-        ) : (
-          <EmptyState />
-        )}
+      {/* Coluna 3 — Chat */}
+      {selectedConversationId && currentConversation ? (
+        <ChatWindow
+          contactName={currentConversation.contactName}
+          contactAvatar={currentConversation.contactAvatar}
+          isOnline={currentConversation.isOnline}
+          messages={frontendMessages}
+          currentUserId="me"
+          onSendMessage={sendMessage}
+        />
+      ) : (
+        <EmptyState />
+      )}
+    </div>
+  );
+}
+
+// ─── Root — decide login ou app ───────────────────────────────────────────────
+
+function AppContent() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-zinc-950 text-zinc-400">
+        Carregando...
       </div>
+    );
+  }
+
+  return isAuthenticated ? <ChatApp /> : <LoginScreen />;
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
     </ThemeProvider>
   );
 }
